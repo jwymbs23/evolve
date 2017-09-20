@@ -12,7 +12,7 @@ import re
 random.seed(1002)
 
 n=200
-n_bugs = 20
+n_bugs = 10
 ising_array = [[-1 if (random.random() > 0.5) else 1  for i in range(n)] for j in range(n)]
 bug_coord = [[random.randint(0,n-1) for i in range(n_bugs)] for j in range(2)]
 J = 1
@@ -53,8 +53,17 @@ def calc_del_e(spin, J):
 
 tot_en = calc_total_energy(J)
 sweeps = 500
-n_bug_steps = 50
+n_bug_steps = 20
 alive = [1 for i in range(n_bugs)]
+#initial probabilities for moving forwards, backwards or turning
+pf = 0.25
+pb = 0.25
+pt = 0.5
+###
+#pt = 1
+#pf = 0
+#pb = 0
+
 for s in range(sweeps):
     #update ising base
     for sw in range(n*n):
@@ -63,31 +72,62 @@ for s in range(sweeps):
         if(exp(-beta*del_e) > random.random()):
             ising_array[spin[0]][spin[1]] *= -1
             tot_en += del_e
-            #move bugs
+    #move bugs
     food_consumed = [0 for i in range(n_bugs)]
+    prev_step = [[0 if (random.random() < 0.5) else 1 for i in range(n_bugs)]]
+    prev_step.append([1 if prev_step[0][i] == 0 else 0 for i in range(n_bugs)])
+    move_stats = np.zeros((n_bugs,3))
     for bsw in range(n_bug_steps):
+        prev = list(bug_coord)
         for cbug in range(n_bugs):
-            if alive[cbug] == 1:
-                #move random step
-                if random.random() > 0.5:
-                    if random.random() > 0.5:
-                        bug_coord[0][cbug] = (bug_coord[0][cbug] + 1)%n
-                    else:
-                        bug_coord[0][cbug] = (bug_coord[0][cbug] - 1)%n
+            #move random step forward backward or turning
+            p0 = bug_coord[0][cbug]
+            p1 = bug_coord[1][cbug]
+            choose_dir = random.random()
+            if choose_dir < pf:
+                #move forwards
+                bug_coord[0][cbug] += prev_step[0][cbug]
+                bug_coord[1][cbug] += prev_step[1][cbug]
+                move_stats[cbug][0] += 1
+            elif choose_dir < pf + pb:
+                #move backwards
+                bug_coord[0][cbug] -= prev_step[0][cbug]
+                bug_coord[1][cbug] -= prev_step[1][cbug]
+                move_stats[cbug][1] += 1
+            else:
+                #turn
+                move_stats[cbug][2] += 1
+                if random.random() < 0.5:
+                    #turn left
+                    bug_coord[0][cbug] -= prev_step[1][cbug]
+                    bug_coord[1][cbug] += prev_step[0][cbug]
                 else:
-                    if random.random() > 0.5:
-                        bug_coord[1][cbug] = (bug_coord[1][cbug] + 1)%n
-                    else:
-                        bug_coord[1][cbug] = (bug_coord[1][cbug] - 1)%n
-                #eat up!
-                if ising_array[bug_coord[0][cbug]][bug_coord[1][cbug]] == 1:
-                    food_consumed[cbug] += 1
-                    ising_array[bug_coord[0][cbug]][bug_coord[1][cbug]] = -1
-        
-
-    print(food_consumed)
+                    #turn right
+                    bug_coord[0][cbug] += prev_step[1][cbug]
+                    bug_coord[1][cbug] -= prev_step[0][cbug]
+            prev_step[0][cbug] = bug_coord[0][cbug] - p0#prev[0][cbug]
+            prev_step[1][cbug] = bug_coord[1][cbug] - p1#prev[1][cbug]
+            bug_coord[0][cbug] = bug_coord[0][cbug]%n
+            bug_coord[1][cbug] = bug_coord[1][cbug]%n
+            #eat up!
+            if ising_array[bug_coord[0][cbug]][bug_coord[1][cbug]] == 1:
+                food_consumed[cbug] += 1
+                ising_array[bug_coord[0][cbug]][bug_coord[1][cbug]] = -1
+    mean_food = np.mean(np.asarray(food_consumed))
+    #is mean best?
+    if mean_food > 0:
+        successful_stats = np.zeros(3)
+        for ci,i in enumerate(food_consumed):
+            if i > mean_food:
+                successful_stats += move_stats[ci]
+        norm = np.sum(successful_stats)
+        pf = successful_stats[0]/norm
+        pb = successful_stats[1]/norm
+        pt = successful_stats[2]/norm
+    #track_move_probs.append([pf, pb, pt])
+    print(successful_stats)
     plt.cla()
     plt.imshow(ising_array)
-    plt.scatter(bug_coord[1], bug_coord[0], marker = 'o', s = 0.5, color = 'yellow')
+    plt.scatter(bug_coord[1], bug_coord[0], marker = 'o', s = 5, color = 'red')
     plt.pause(0.00001)
 
