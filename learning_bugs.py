@@ -12,10 +12,9 @@ import re
 random.seed(13829)
 
 n=200
-n_bugs = 50
+n_bugs = 20
 ising_array = [[-1 if (random.random() > 0.5) else 1  for i in range(n)] for j in range(n)]
-bug_coord = [[random.randint(0,n-1) for i in range(n_bugs)] for j in range(2)]
-J = 0
+J = 1
 H = 0.0
 beta = 1
 data = []
@@ -34,7 +33,7 @@ def calc_total_energy(J):
     energy = 0
     for i in range(n):
         for j in range(n):
-            energy += -J*ising_array[i][(j+1)%n] - J*ising_array[(i+1)%n][j]# + H*ising_array[i][j]
+            energy += -J*ising_array[i][(j+1)%n] - J*ising_array[(i+1)%n][j] + H*ising_array[i][j]
     return energy
 
 
@@ -45,8 +44,8 @@ def calc_del_e(spin, J):
     neigh = [ising_array[(i+1)%n][j], ising_array[i][(j+1)%n], ising_array[(i-1)%n][j], ising_array[i][(j-1)%n]]
     #when ising array is a numpy array neigh = ising_array[[(i+1)%n,i,(i-1)%n,i],[j,(j+1)%n,j,(j-1)%n]]
     sigma_spin = ising_array[i][j]
-    old_e = -J*sum([sigma_spin*i for i in neigh])# + H*sigma_spin
-    new_e = -J*sum([-sigma_spin*i for i in neigh])# - H*sigma_spin
+    old_e = -J*sum([sigma_spin*i for i in neigh]) + H*sigma_spin
+    new_e = -J*sum([-sigma_spin*i for i in neigh]) - H*sigma_spin
     return (new_e - old_e)
 
 
@@ -54,8 +53,8 @@ def calc_del_e(spin, J):
 
 
 tot_en = calc_total_energy(J)
-sweeps = 500
-n_bug_steps = 10
+sweeps = 100
+n_bug_steps = 50
 alive = [1 for i in range(n_bugs)]
 #initial probabilities for moving forwards, backwards or turning
 pf = 0.25
@@ -65,13 +64,9 @@ pt = 0.5
 #pt = 1
 #pf = 0
 #pb = 0
-prev_magnetization = 0
-shift_J = 0
-av_change_M = 0
+
 for s in range(sweeps):
     #update ising base
-    prev_J = J
-    J = J + 0.5*(random.random()-0.5) + shift_J
     for sw in range(n*n):
         spin = [random.randint(0,n-1),random.randint(0,n-1)]
         del_e = calc_del_e(spin, J)
@@ -80,6 +75,7 @@ for s in range(sweeps):
             tot_en += del_e
     #move bugs
     food_consumed = [0 for i in range(n_bugs)]
+    bug_coord = [[random.randint(0,n-1) for i in range(n_bugs)] for j in range(2)]
     prev_step = [[0 if (random.random() < 0.5) else 1 for i in range(n_bugs)]]
     prev_step.append([1 if prev_step[0][i] == 0 else 0 for i in range(n_bugs)])
     move_stats = np.zeros((n_bugs,3))
@@ -126,46 +122,37 @@ for s in range(sweeps):
         for ci,i in enumerate(food_consumed):
             if i > mean_food:
                 successful_stats += move_stats[ci]
-        norm = np.sum(successful_stats)
+        successful_stats /= np.sum(successful_stats)
+        successful_stats = 0.1*successful_stats + [pf,pb,pt]
+        norm = np.sum(successful_stats)        
         pf = successful_stats[0]/norm
         pb = successful_stats[1]/norm
         pt = successful_stats[2]/norm
-    #change so that all moves have some probability
     #track_move_probs.append([pf, pb, pt])
     #
     #
     #
-    # change ising params:
-    magnetization = 0
+    #calculate magnetization:
+    M = 0
     for i in ising_array:
         for j in i:
-            magnetization += j
-    #    print(magnetization - prev_magnetization)
-    #want to minimize 'crop' loss -> if change in J leads to small Delta M, reinforce that change
-    #what is small Delta M?
-    Delta_M = abs(magnetization - prev_magnetization)
-    percent_change_M = (Delta_M)/magnetization
-    if s > 2:
-        av_change_M = (av_change_M * (s-1) + magnetization)/s
-    print(Delta_M, av_change_M, percent_change_M)
-    if Delta_M > av_change_M:
-        shift_J = percent_change_M*(J - prev_J) #reinforce change
-    else:
-        shift_J = - percent_change_M*(J - prev_J)
-    prev_magnetization = magnetization
-    print(s, pf, pb, pt, J, magnetization)
-    data.append([s, pf, pb, pt, J, magnetization])
-#    plt.cla()
-#    plt.imshow(ising_array)
-#    plt.scatter(bug_coord[1], bug_coord[0], marker = 'o', s = 5, color = 'red')
-#    plt.pause(0.00001)
+            M += j
+    #overdamped fac = 0.0001, underdamped fac = 1
+    fac = 10
+    H += fac*M/(n*n)
+    print(s, pf, pb, pt, M, H, mean_food)
+    data.append([s, pf, pb, pt, M, H, mean_food])
+    if not s%10:
+        plt.cla()
+        plt.axis([0, n, 0, n])
+        plt.imshow(ising_array)
+        plt.scatter(bug_coord[1], bug_coord[0], marker = 'o', s = 5, color = 'red')
+        plt.savefig(str(s)+'.png', dpi = 60)
+    #plt.pause(0.00001)
 
-
+plt.clf()
 plt.plot([row[0] for row in data], [row[1] for row in data], label = 'forward')
 plt.plot([row[0] for row in data], [row[2] for row in data], label = 'backward')
 plt.plot([row[0] for row in data], [row[3] for row in data], label = 'turn')
-plt.plot([row[0] for row in data], [row[4] for row in data], label = 'J')
 plt.legend(loc = 'upper left')
-plt.show()
-plt.plot([row[1] for row in data], [row[4] for row in data], label = 'pf vs J')
 plt.show()
