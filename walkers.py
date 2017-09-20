@@ -9,13 +9,13 @@ import re
 
 
 
-random.seed(1002)
+random.seed(13829)
 
 n=200
-n_bugs = 10
+n_bugs = 50
 ising_array = [[-1 if (random.random() > 0.5) else 1  for i in range(n)] for j in range(n)]
 bug_coord = [[random.randint(0,n-1) for i in range(n_bugs)] for j in range(2)]
-J = 1
+J = 0
 H = 0.0
 beta = 1
 
@@ -63,9 +63,12 @@ pt = 0.5
 #pt = 1
 #pf = 0
 #pb = 0
-
+prev_magnetization = 0
+shift_J = 0
 for s in range(sweeps):
     #update ising base
+    prev_J = J
+    J = J + 0.1*(random.random()-0.5 + shift_J)
     for sw in range(n*n):
         spin = [random.randint(0,n-1),random.randint(0,n-1)]
         del_e = calc_del_e(spin, J)
@@ -116,7 +119,7 @@ for s in range(sweeps):
     mean_food = np.mean(np.asarray(food_consumed))
     #is mean best?
     if mean_food > 0:
-        successful_stats = np.zeros(3)
+        successful_stats = np.ones(3)
         for ci,i in enumerate(food_consumed):
             if i > mean_food:
                 successful_stats += move_stats[ci]
@@ -124,8 +127,23 @@ for s in range(sweeps):
         pf = successful_stats[0]/norm
         pb = successful_stats[1]/norm
         pt = successful_stats[2]/norm
+    #change so that all moves have some probability
     #track_move_probs.append([pf, pb, pt])
-    print(successful_stats)
+    #
+    #
+    #
+    # change ising params:
+    magnetization = 0
+    for i in ising_array:
+        for j in i:
+            magnetization += j
+    print(magnetization - prev_magnetization)
+    if magnetization - prev_magnetization > 0:
+        shift_J = 0.05*(J - prev_J) #reinforce change
+    else:
+        shift_J = 0.05*(prev_J - J)
+    prev_magnetization = magnetization
+    print(pf, pb, pt, J, magnetization)
     plt.cla()
     plt.imshow(ising_array)
     plt.scatter(bug_coord[1], bug_coord[0], marker = 'o', s = 5, color = 'red')
