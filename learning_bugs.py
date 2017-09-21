@@ -53,7 +53,7 @@ def calc_del_e(spin, J):
 
 
 tot_en = calc_total_energy(J)
-sweeps = 100
+sweeps = 10000
 n_bug_steps = 50
 alive = [1 for i in range(n_bugs)]
 #initial probabilities for moving forwards, backwards or turning
@@ -64,7 +64,7 @@ pt = 0.5
 #pt = 1
 #pf = 0
 #pb = 0
-
+prev_M = 0
 for s in range(sweeps):
     #update ising base
     for sw in range(n*n):
@@ -123,7 +123,7 @@ for s in range(sweeps):
             if i > mean_food:
                 successful_stats += move_stats[ci]
         successful_stats /= np.sum(successful_stats)
-        successful_stats = 0.1*successful_stats + [pf,pb,pt]
+        successful_stats = successful_stats + [pf,pb,pt]
         norm = np.sum(successful_stats)        
         pf = successful_stats[0]/norm
         pb = successful_stats[1]/norm
@@ -138,16 +138,17 @@ for s in range(sweeps):
         for j in i:
             M += j
     #overdamped fac = 0.0001, underdamped fac = 1
-    fac = 10
-    H += fac*M/(n*n)
+    fac = 1
+    H -= fac*(prev_M - M)/(n*n)
+    prev_M = M
     print(s, pf, pb, pt, M, H, mean_food)
     data.append([s, pf, pb, pt, M, H, mean_food])
-    if not s%10:
+    if not s%50:
         plt.cla()
         plt.axis([0, n, 0, n])
         plt.imshow(ising_array)
         plt.scatter(bug_coord[1], bug_coord[0], marker = 'o', s = 5, color = 'red')
-        plt.savefig(str(s)+'.png', dpi = 60)
+        plt.savefig('%04d.png'%s, dpi = 60)
     #plt.pause(0.00001)
 
 plt.clf()
