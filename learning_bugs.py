@@ -53,7 +53,7 @@ def calc_del_e(spin, J):
 
 
 tot_en = calc_total_energy(J)
-sweeps = 5000
+sweeps = 500
 n_bug_steps = 50
 alive = [1 for i in range(n_bugs)]
 #initial probabilities for moving forwards, backwards or turning
@@ -82,6 +82,11 @@ for s in range(sweeps):
     move_stats = np.zeros((n_bugs,3))
     for bsw in range(n_bug_steps):
         prev = list(bug_coord)
+        choose_dir = [random.random() for i in range(n_bugs)]
+        #advance bugs 
+                
+
+
         for cbug in range(n_bugs):
             #move random step forward backward or turning
             p0 = bug_coord[0][cbug]
