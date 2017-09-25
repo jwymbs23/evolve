@@ -20,12 +20,12 @@ beta = 1
 data = []
 
 
-def randomize():
-    global ising_array
-    for i in range(n):
-        for j in range(n):
-            if random.random() < 0.5:
-                ising_array[i,j] *= -1
+#def randomize():
+#    global ising_array
+#    for i in range(n):
+#        for j in range(n):
+#            if random.random() < 0.5:
+#                ising_array[i,j] *= -1
 
 
 def calc_total_energy(J):
@@ -53,8 +53,8 @@ def calc_del_e(spin, J):
 
 
 tot_en = calc_total_energy(J)
-sweeps = 500
-n_bug_steps = 200
+sweeps = 10000
+n_bug_steps = 1000
 alive = [1 for i in range(n_bugs)]
 #initial probabilities for moving forwards, backwards or turning
 pf = 0.25
@@ -90,14 +90,16 @@ for s in range(sweeps):
         bug_coord = bug_coord%n
         #print(bug_coord[0])
         food_consumed += np.asarray([ising_array[i][j]>0 for [i,j] in bug_coord.T])
-    for i in bug_coord.T:
-        #print(i)
-        ising_array[i[0]][i[1]] = -1
+        for i in bug_coord.T:
+            #print(ising_array[i[0]][i[1]] )
+            ising_array[i[1]][i[0]] = -1
+        #print(ising_array[i[0]][i[1]] )
+        
         #print(food_consumed)
         #advance bugs 
-                
-
-
+        
+        
+        
         #for cbug in range(n_bugs):
         #    #move random step forward backward or turning
         #    p0 = bug_coord[0][cbug]
@@ -134,7 +136,7 @@ for s in range(sweeps):
         #        ising_array[bug_coord[0][cbug]][bug_coord[1][cbug]] = -1
     mean_food = np.mean(food_consumed)
     #is mean best?
-    memory_factor = 0.8
+    memory_factor = 0.95
     if mean_food > 0:
         successful_stats = np.ones(3)
         for ci,i in enumerate(food_consumed):
@@ -157,7 +159,7 @@ for s in range(sweeps):
         for j in i:
             M += j
     #overdamped fac = 0.0001, underdamped fac = 1
-    fac = 1
+    fac = 0.1
     prev_M = -2*M
     H -= fac*(prev_M - M)/(n*n)
     prev_M = M
