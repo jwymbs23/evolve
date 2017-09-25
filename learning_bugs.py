@@ -54,7 +54,7 @@ def calc_del_e(spin, J):
 
 tot_en = calc_total_energy(J)
 sweeps = 500
-n_bug_steps = 50
+n_bug_steps = 200
 alive = [1 for i in range(n_bugs)]
 #initial probabilities for moving forwards, backwards or turning
 pf = 0.25
@@ -65,7 +65,7 @@ pt = 0.5
 #pf = 0
 #pb = 0
 prev_M = 0
-bug_coord = [[random.randint(0,n-1) for i in range(n_bugs)] for j in range(2)]
+bug_coord = np.asarray([[random.randint(0,n-1) for i in range(n_bugs)] for j in range(2)])
 for s in range(sweeps):
     #update ising base
     for sw in range(n*n):
@@ -75,55 +75,66 @@ for s in range(sweeps):
             ising_array[spin[0]][spin[1]] *= -1
             tot_en += del_e
     #move bugs
-    food_consumed = [0 for i in range(n_bugs)]
+    food_consumed = np.zeros(n_bugs)
     #bug_coord = [[random.randint(0,n-1) for i in range(n_bugs)] for j in range(2)]
     prev_step = [[0 if (random.random() < 0.5) else 1 for i in range(n_bugs)]]
     prev_step.append([1 if prev_step[0][i] == 0 else 0 for i in range(n_bugs)])
     move_stats = np.zeros((n_bugs,3))
     for bsw in range(n_bug_steps):
-        prev = list(bug_coord)
+        prev = bug_coord
         choose_dir = [random.random() for i in range(n_bugs)]
+        move_stats = [[1,0,0] if i < pf else [0,1,0] if i < pf + pb else [0,0,1] for i in choose_dir]
+        step_dir = np.asarray([[1,1] if i < pf else [-1,-1] if i < pf + pb else [1,-1] if random.random() < 0.5 else [-1,1] for i in choose_dir]).T
+        bug_coord += step_dir*prev_step
+        prev = bug_coord
+        bug_coord = bug_coord%n
+        #print(bug_coord[0])
+        food_consumed += np.asarray([ising_array[i][j]>0 for [i,j] in bug_coord.T])
+    for i in bug_coord.T:
+        #print(i)
+        ising_array[i[0]][i[1]] = -1
+        #print(food_consumed)
         #advance bugs 
                 
 
 
-        for cbug in range(n_bugs):
-            #move random step forward backward or turning
-            p0 = bug_coord[0][cbug]
-            p1 = bug_coord[1][cbug]
-            choose_dir = random.random()
-            if choose_dir < pf:
-                #move forwards
-                bug_coord[0][cbug] += prev_step[0][cbug]
-                bug_coord[1][cbug] += prev_step[1][cbug]
-                move_stats[cbug][0] += 1
-            elif choose_dir < pf + pb:
-                #move backwards
-                bug_coord[0][cbug] -= prev_step[0][cbug]
-                bug_coord[1][cbug] -= prev_step[1][cbug]
-                move_stats[cbug][1] += 1
-            else:
-                #turn
-                move_stats[cbug][2] += 1
-                if random.random() < 0.5:
-                    #turn left
-                    bug_coord[0][cbug] -= prev_step[1][cbug]
-                    bug_coord[1][cbug] += prev_step[0][cbug]
-                else:
-                    #turn right
-                    bug_coord[0][cbug] += prev_step[1][cbug]
-                    bug_coord[1][cbug] -= prev_step[0][cbug]
-            prev_step[0][cbug] = bug_coord[0][cbug] - p0#prev[0][cbug]
-            prev_step[1][cbug] = bug_coord[1][cbug] - p1#prev[1][cbug]
-            bug_coord[0][cbug] = bug_coord[0][cbug]%n
-            bug_coord[1][cbug] = bug_coord[1][cbug]%n
-            #eat up!
-            if ising_array[bug_coord[0][cbug]][bug_coord[1][cbug]] == 1:
-                food_consumed[cbug] += 1
-                ising_array[bug_coord[0][cbug]][bug_coord[1][cbug]] = -1
-    mean_food = np.mean(np.asarray(food_consumed))
+        #for cbug in range(n_bugs):
+        #    #move random step forward backward or turning
+        #    p0 = bug_coord[0][cbug]
+        #    p1 = bug_coord[1][cbug]
+        #    choose_dir = random.random()
+        #    if choose_dir < pf:
+        #        #move forwards
+        #        bug_coord[0][cbug] += prev_step[0][cbug]
+        #        bug_coord[1][cbug] += prev_step[1][cbug]
+        #        move_stats[cbug][0] += 1
+        #    elif choose_dir < pf + pb:
+        #        #move backwards
+        #        bug_coord[0][cbug] -= prev_step[0][cbug]
+        #        bug_coord[1][cbug] -= prev_step[1][cbug]
+        #        move_stats[cbug][1] += 1
+        #    else:
+        #        #turn
+        #        move_stats[cbug][2] += 1
+        #        if random.random() < 0.5:
+        #            #turn left
+        #            bug_coord[0][cbug] -= prev_step[1][cbug]
+        #            bug_coord[1][cbug] += prev_step[0][cbug]
+        #        else:
+        #            #turn right
+        #            bug_coord[0][cbug] += prev_step[1][cbug]
+        #            bug_coord[1][cbug] -= prev_step[0][cbug]
+        #    prev_step[0][cbug] = bug_coord[0][cbug] - p0#prev[0][cbug]
+        #    prev_step[1][cbug] = bug_coord[1][cbug] - p1#prev[1][cbug]
+        #    bug_coord[0][cbug] = bug_coord[0][cbug]%n
+        #    bug_coord[1][cbug] = bug_coord[1][cbug]%n
+        #    #eat up!
+        #    if ising_array[bug_coord[0][cbug]][bug_coord[1][cbug]] == 1:
+        #        food_consumed[cbug] += 1
+        #        ising_array[bug_coord[0][cbug]][bug_coord[1][cbug]] = -1
+    mean_food = np.mean(food_consumed)
     #is mean best?
-    memory_factor = 0.1
+    memory_factor = 0.8
     if mean_food > 0:
         successful_stats = np.ones(3)
         for ci,i in enumerate(food_consumed):
@@ -131,10 +142,11 @@ for s in range(sweeps):
                 successful_stats += move_stats[ci]
         successful_stats /= np.sum(successful_stats)
         successful_stats = successful_stats*(1-memory_factor) + np.asarray([pf,pb,pt])*(memory_factor)
-        norm = np.sum(successful_stats)        
-        pf = successful_stats[0]/norm
-        pb = successful_stats[1]/norm
-        pt = successful_stats[2]/norm
+        #norm = np.sum(successful_stats)
+        #print(norm)
+        pf = successful_stats[0]#/norm
+        pb = successful_stats[1]#/norm
+        pt = successful_stats[2]#/norm
     #track_move_probs.append([pf, pb, pt])
     #
     #
@@ -145,7 +157,8 @@ for s in range(sweeps):
         for j in i:
             M += j
     #overdamped fac = 0.0001, underdamped fac = 1
-    fac = 0.25
+    fac = 1
+    prev_M = -2*M
     H -= fac*(prev_M - M)/(n*n)
     prev_M = M
     print(s, pf, pb, pt, M, H, mean_food)
