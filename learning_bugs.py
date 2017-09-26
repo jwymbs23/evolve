@@ -54,7 +54,7 @@ def calc_del_e(spin, J):
 
 tot_en = calc_total_energy(J)
 sweeps = 10000
-n_bug_steps = 1000
+n_bug_steps = 100
 alive = [1 for i in range(n_bugs)]
 #initial probabilities for moving forwards, backwards or turning
 pf = 0.25
@@ -83,17 +83,15 @@ for s in range(sweeps):
     for bsw in range(n_bug_steps):
         prev = bug_coord
         choose_dir = [random.random() for i in range(n_bugs)]
-        move_stats = [[1,0,0] if i < pf else [0,1,0] if i < pf + pb else [0,0,1] for i in choose_dir]
+        move_stats += [[1,0,0] if i < pf else [0,1,0] if i < pf + pb else [0,0,1] for i in choose_dir]
         step_dir = np.asarray([[1,1] if i < pf else [-1,-1] if i < pf + pb else [1,-1] if random.random() < 0.5 else [-1,1] for i in choose_dir]).T
         bug_coord += step_dir*prev_step
         prev = bug_coord
         bug_coord = bug_coord%n
         #print(bug_coord[0])
         food_consumed += np.asarray([ising_array[i][j]>0 for [i,j] in bug_coord.T])
-        for i in bug_coord.T:
-            #print(ising_array[i[0]][i[1]] )
-            ising_array[i[1]][i[0]] = -1
-        #print(ising_array[i[0]][i[1]] )
+        #for i in bug_coord.T:
+        #    ising_array[i[1]][i[0]] = -1
         
         #print(food_consumed)
         #advance bugs 
@@ -136,7 +134,7 @@ for s in range(sweeps):
         #        ising_array[bug_coord[0][cbug]][bug_coord[1][cbug]] = -1
     mean_food = np.mean(food_consumed)
     #is mean best?
-    memory_factor = 0.95
+    memory_factor = 0.3
     if mean_food > 0:
         successful_stats = np.ones(3)
         for ci,i in enumerate(food_consumed):
@@ -159,9 +157,10 @@ for s in range(sweeps):
         for j in i:
             M += j
     #overdamped fac = 0.0001, underdamped fac = 1
-    fac = 0.1
-    prev_M = -2*M
-    H -= fac*(prev_M - M)/(n*n)
+    M /= n*n
+    fac = 100
+    delM = (M)
+    H += fac*np.sign(delM)*delM*delM/(n*n)
     prev_M = M
     print(s, pf, pb, pt, M, H, mean_food)
     data.append([s, pf, pb, pt, M, H, mean_food])
